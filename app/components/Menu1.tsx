@@ -9,7 +9,7 @@ const SAMPLE = `技術テーマ／システム名：
 表面処理技術（めっき）
 
 相談したいこと：
-めっき工程の機能について調査／対話したいです。`;
+めっき技術について調査／対話したいです。`;
 
 // ----------------------------------------------------------------
 // Styles — same design language as Menu2 / Menu3
@@ -145,7 +145,7 @@ export default function Menu1() {
         value={inputText}
         onChange={(e) => { setInputText(e.target.value); setError(null); }}
         placeholder={
-          "＜入力例＞\n技術テーマ／システム名：\n表面処理技術（めっき）\n\n相談したいこと：\nめっき工程の機能について調査／対話したいです。"
+          "＜入力例＞\n技術テーマ／システム名：\n表面処理技術（めっき）\n\n相談したいこと：\nめっき技術について調査／対話したいです。"
         }
         disabled={loading}
         style={{
