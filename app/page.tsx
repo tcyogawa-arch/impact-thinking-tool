@@ -1,65 +1,87 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import Menu3 from "./components/Menu3";
+
+const TABS = [
+  { id: 1, label: "メニュー1：機能の調査" },
+  { id: 2, label: "メニュー2：論文／文献の調査 プロンプト生成" },
+  { id: 3, label: "メニュー3：pダイアグラム作成" },
+] as const;
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<number>(3);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      <div style={{ maxWidth: "860px", margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
+
+        {/* Header */}
+        <h1 style={{
+          fontSize: "1.4rem",
+          fontWeight: "bold",
+          color: "var(--green)",
+          marginBottom: "0.4rem",
+          paddingLeft: "12px",
+          borderLeft: "4px solid var(--orange)",
+        }}>
+          品質工学 先人の知を現場の力に
+        </h1>
+        <p style={{ fontSize: "15px", color: "#555", marginBottom: "2rem" }}>
+          先人にアクセスし，先人の力／知恵を現場につなぎます。
+        </p>
+
+        {/* Tab navigation */}
+        <div style={{ borderBottom: "1px solid var(--border)", marginBottom: "2rem" }}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: "7px 14px",
+                  marginRight: "4px",
+                  border: "1px solid var(--border)",
+                  borderTop: isActive ? "3px solid var(--orange)" : "1px solid var(--border)",
+                  borderBottom: isActive ? "1px solid var(--bg)" : "none",
+                  background: isActive ? "var(--bg)" : "var(--green-bg)",
+                  color: isActive ? "var(--green)" : "#666",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  fontSize: "15px",
+                  fontFamily: "inherit",
+                  borderRadius: "4px 4px 0 0",
+                  position: "relative",
+                  top: "1px",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {/* Tab content */}
+        {activeTab === 3 && <Menu3 />}
+        {activeTab === 1 && (
+          <p style={{ color: "#888", fontSize: "15px" }}>メニュー1（機能の調査）は準備中です。</p>
+        )}
+        {activeTab === 2 && (
+          <p style={{ color: "#888", fontSize: "15px" }}>メニュー2（論文／文献の調査）は準備中です。</p>
+        )}
+
+        {/* Footer note */}
+        <p style={{
+          marginTop: "3.5rem",
+          paddingTop: "1rem",
+          borderTop: "1px solid var(--border)",
+          fontSize: "14px",
+          color: "#888",
+        }}>
+          ※ AIの出力は正解ではなく，スタッフが現場向けに調整／仕上げて使うものです。
+        </p>
+      </div>
     </div>
   );
 }
