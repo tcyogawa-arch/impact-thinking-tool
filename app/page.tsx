@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Menu2 from "./components/Menu2";
 import Menu3 from "./components/Menu3";
 
 const TABS = [
@@ -67,9 +68,7 @@ export default function Home() {
         {activeTab === 1 && (
           <p style={{ color: "#888", fontSize: "15px" }}>メニュー1（機能の調査）は準備中です。</p>
         )}
-        {activeTab === 2 && (
-          <p style={{ color: "#888", fontSize: "15px" }}>メニュー2（論文／文献の調査）は準備中です。</p>
-        )}
+        {activeTab === 2 && <Menu2 />}
 
         {/* Footer note */}
         <p style={{
