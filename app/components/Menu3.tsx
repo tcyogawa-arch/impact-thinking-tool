@@ -42,6 +42,80 @@ interface PDiagramData {
 }
 
 // ----------------------------------------------------------------
+// Strip Markdown: remove heading/bold/bullet markers from AI output
+// ----------------------------------------------------------------
+function stripMarkdown(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      let l = line.replace(/^\s*#{1,4}\s*/, "");  // ## heading markers
+      l = l.replace(/\*\*(.+?)\*\*/g, "$1");        // **bold** → plain
+      l = l.replace(/^[-*]\s+/, "");                 // - and * bullets at line start
+      return l;
+    })
+    .filter((line) => {
+      const t = line.trim();
+      return t === "" || !/^[*\-・]+$/.test(t);      // remove marker-only lines
+    })
+    .join("\n");
+}
+
+// ----------------------------------------------------------------
+// Simplify LaTeX: convert $...$ inline math to plain text
+// ----------------------------------------------------------------
+function simplifyLatex(text: string): string {
+  return text.replace(/\$([^$\n]+)\$/g, (_, inner) => {
+    let s: string = inner;
+    // Fractions first (must run before brace removal)
+    s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2");
+    // Greek letters
+    s = s.replace(/\\alpha/g, "α");
+    s = s.replace(/\\beta/g, "β");
+    s = s.replace(/\\gamma/g, "γ");
+    s = s.replace(/\\delta/g, "δ");
+    s = s.replace(/\\Delta/g, "Δ");
+    s = s.replace(/\\sigma/g, "σ");
+    s = s.replace(/\\Sigma/g, "Σ");
+    s = s.replace(/\\mu/g, "μ");
+    s = s.replace(/\\eta/g, "η");
+    s = s.replace(/\\epsilon/g, "ε");
+    s = s.replace(/\\phi/g, "φ");
+    // Math symbols
+    s = s.replace(/\\times/g, "×");
+    s = s.replace(/\\pm/g, "±");
+    s = s.replace(/\\cdot/g, "·");
+    // Subscripts: _{N} then _N
+    s = s.replace(/_{([^}]+)}/g, "$1");
+    s = s.replace(/_([A-Za-z0-9])/g, "$1");
+    // Superscripts: ^{N} then ^N
+    s = s.replace(/\^{([^}]+)}/g, "$1");
+    s = s.replace(/\^([A-Za-z0-9])/g, "$1");
+    // Remove remaining backslash commands and braces
+    s = s.replace(/\\[a-zA-Z]+/g, "");
+    s = s.replace(/[{}]/g, "");
+    // Remove LaTeX artifact spaces between adjacent alphanumeric tokens
+    s = s.replace(/([A-Za-zα-ωΑ-Ω0-9]) ([A-Za-zα-ωΑ-Ω0-9])/g, "$1$2");
+    return s.trim();
+  });
+}
+
+// ----------------------------------------------------------------
+// Normalize: restore newlines lost when pasting AI-generated text
+// ----------------------------------------------------------------
+function normalizeInput(raw: string): string {
+  let t = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  t = stripMarkdown(t);
+  t = simplifyLatex(t);
+  // Insert newline before section headers (a-d) that appear mid-line
+  t = t.replace(/([^\n])([a-d][)）])/g, "$1\n$2");
+  // Insert newline before item numbers (1-7, half or full-width) that appear mid-line
+  t = t.replace(/([^\n])([1-7１-７][)）])/g, "$1\n$2");
+  // Collapse 3+ consecutive newlines to 2
+  t = t.replace(/\n{3,}/g, "\n\n");
+  return t.trim();
+}
+
+// ----------------------------------------------------------------
 // Parse: extract 7 elements from structured text
 // ----------------------------------------------------------------
 function parseText(text: string): PDiagramData | null {
@@ -74,12 +148,40 @@ function parseText(text: string): PDiagramData | null {
   const cText = (sections["c"] ?? []).join("\n");
 
   const extractItem = (num: number, labelPattern: string): string => {
-    // match both half-width (1) and full-width（１）bracket styles
     const fw = String.fromCharCode(65296 + num); // ０=65296
-    const re = new RegExp(
-      `[${num}${fw}][)）]\\s*${labelPattern}[：:]\\s*(.+)`
+    const lines = cText.split("\n");
+
+    // Primary: find the header line with number prefix, then collect following lines
+    const headerRe = new RegExp(
+      `^[ \\t]*[${num}${fw}][)）][ \\t]*${labelPattern}[：:]?(.*)`
     );
-    return cText.match(re)?.[1]?.trim() ?? "";
+    let startIdx = -1;
+    let inlineContent = "";
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(headerRe);
+      if (m) { startIdx = i; inlineContent = m[1]?.trim() ?? ""; break; }
+    }
+
+    if (startIdx >= 0) {
+      // Collect following lines until the next numbered item header
+      const nextItemRe = /^[ \t]*[1-7１-７][)）]/;
+      const contentLines: string[] = [];
+      for (let i = startIdx + 1; i < lines.length; i++) {
+        if (lines[i].match(nextItemRe)) break;
+        const l = lines[i].trim();
+        if (l) contentLines.push(l);
+      }
+      const parts = inlineContent ? [inlineContent, ...contentLines] : contentLines;
+      if (parts.length > 0) return parts.join("\n");
+    }
+
+    // Fallback: label-only single-line match (for AI output without number prefix)
+    const labelRe = new RegExp(`^[ \\t]*${labelPattern}[：:][ \\t]*(.+)`);
+    for (const line of lines) {
+      const m = line.match(labelRe);
+      if (m) return m[1]?.trim() ?? "";
+    }
+    return "";
   };
 
   const systemName =
@@ -271,6 +373,20 @@ const S = {
     display: "block" as const,
     marginBottom: "6px",
   } satisfies React.CSSProperties,
+
+  fieldTextarea: {
+    width: "100%",
+    padding: "8px 10px",
+    border: "1px solid var(--border)",
+    borderRadius: 4,
+    fontSize: "15px",
+    fontFamily: "inherit",
+    resize: "vertical" as const,
+    boxSizing: "border-box" as const,
+    lineHeight: 1.75,
+    background: "white",
+    color: "var(--text)",
+  } satisfies React.CSSProperties,
 };
 
 // ----------------------------------------------------------------
@@ -281,16 +397,27 @@ export default function Menu3() {
   const [result, setResult] = useState<PDiagramData | null>(null);
   const [parseError, setParseError] = useState(false);
   const [copyMsg, setCopyMsg] = useState("");
+  const [editData, setEditData] = useState<PDiagramData | null>(null);
+
+  const updateField = (key: keyof PDiagramData, value: string) => {
+    setEditData((prev) => (prev ? { ...prev, [key]: value } : null));
+  };
 
   const flash = (msg: string) => {
     setCopyMsg(msg);
     setTimeout(() => setCopyMsg(""), 2000);
   };
 
-  const handleCreate = () => {
-    const parsed = parseText(inputText);
-    setResult(parsed);
+  const handleDecompose = () => {
+    const parsed = parseText(normalizeInput(inputText));
+    setEditData(parsed);
+    setResult(null);
     setParseError(parsed === null);
+  };
+
+  const handleCreate = () => {
+    if (!editData) return;
+    setResult({ ...editData });
   };
 
   const handleCopyDiagram = async () => {
@@ -332,31 +459,16 @@ export default function Menu3() {
 
       {/* Buttons row 1 */}
       <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
-        <button style={S.btnPrimary} onClick={handleCreate}>
-          pダイアグラム作成
+        <button style={S.btnPrimary} onClick={handleDecompose}>
+          テキスト分解
         </button>
-        <button style={S.btnGray} onClick={() => { setInputText(""); setResult(null); setParseError(false); }}>
+        <button style={S.btnGray} onClick={() => { setInputText(""); setEditData(null); setResult(null); setParseError(false); }}>
           クリア
         </button>
-        <button style={S.btnOrange} onClick={() => { setInputText(SAMPLE); setResult(null); setParseError(false); }}>
+        <button style={S.btnOrange} onClick={() => { setInputText(SAMPLE); setEditData(null); setResult(null); setParseError(false); }}>
           サンプル入力
         </button>
       </div>
-
-      {/* Copy buttons — only shown when result exists */}
-      {result && (
-        <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <button style={S.btnGreen} onClick={handleCopyDiagram}>
-            pダイアグラム コピー
-          </button>
-          <button style={S.btnGreen} onClick={handleCopyText}>
-            文章部分 コピー
-          </button>
-          {copyMsg && (
-            <span style={{ fontSize: "14px", color: "var(--green)" }}>{copyMsg}</span>
-          )}
-        </div>
-      )}
 
       {/* Parse error */}
       {parseError && (
@@ -365,9 +477,85 @@ export default function Menu3() {
         </p>
       )}
 
+      {/* Edit section — shown after テキスト分解 */}
+      {editData && (
+        <div style={{ marginTop: "2rem", borderTop: "2px solid var(--green-light)", paddingTop: "1.5rem" }}>
+          <h2 style={{ fontSize: "16px", color: "var(--green)", fontWeight: "bold", marginBottom: "1rem" }}>
+            要素の確認・編集
+          </h2>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>a) 機能／システム名称</span>
+            <textarea rows={1} value={editData.systemName} onChange={(e) => updateField("systemName", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>b) 機能の概要／翻訳</span>
+            <textarea rows={3} value={editData.overview} onChange={(e) => updateField("overview", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <p style={{ fontSize: "14px", color: "var(--green)", fontWeight: "bold", margin: "8px 0 12px" }}>
+            c) pダイアグラム要素（候補）
+          </p>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>2) 入力信号因子 M</span>
+            <textarea rows={1} value={editData.signalFactor} onChange={(e) => updateField("signalFactor", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>3) 出力特性値 y</span>
+            <textarea rows={1} value={editData.outputFactor} onChange={(e) => updateField("outputFactor", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>4) 制御因子</span>
+            <textarea rows={2} value={editData.controlFactors} onChange={(e) => updateField("controlFactors", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>5) 誤差因子</span>
+            <textarea rows={2} value={editData.noiseFactors} onChange={(e) => updateField("noiseFactors", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>6) 標示因子</span>
+            <textarea rows={1} value={editData.indicatorFactor} onChange={(e) => updateField("indicatorFactor", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <span style={S.label}>7) 品質特性／不具合モード</span>
+            <textarea rows={2} value={editData.qualityChar} onChange={(e) => updateField("qualityChar", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <span style={S.label}>d) 現場への問いかけ</span>
+            <textarea rows={5} value={editData.questions} onChange={(e) => updateField("questions", e.target.value)} style={S.fieldTextarea} />
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button style={S.btnPrimary} onClick={handleCreate}>
+              pダイアグラム作成
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Result */}
       {result && (
         <div style={{ marginTop: "2.5rem" }}>
+          {/* Copy buttons */}
+          <div style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
+            <button style={S.btnGreen} onClick={handleCopyDiagram}>
+              pダイアグラム コピー
+            </button>
+            <button style={S.btnGreen} onClick={handleCopyText}>
+              文章部分 コピー
+            </button>
+            {copyMsg && (
+              <span style={{ fontSize: "14px", color: "var(--green)" }}>{copyMsg}</span>
+            )}
+          </div>
 
           {/* P-diagram fixed layout table */}
           <h2 style={{ fontSize: "16px", color: "var(--green)", fontWeight: "bold", marginBottom: "10px" }}>
