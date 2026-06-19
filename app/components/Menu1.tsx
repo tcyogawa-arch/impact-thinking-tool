@@ -5,11 +5,13 @@ import { useState } from "react";
 // ----------------------------------------------------------------
 // Sample input
 // ----------------------------------------------------------------
-const SAMPLE = `技術テーマ／システム名：
-表面処理技術（めっき）
+const INITIAL = `技術テーマ／システム名：〇〇技術
 
-相談したいこと：
-めっき技術について調査／対話したいです。`;
+お願い：品質工学の視点で〇〇技術について対話したいです。`;
+
+const SAMPLE = `技術テーマ／システム名：表面処理技術（めっき技術）
+
+お願い：品質工学の視点でめっき技術について対話したいです。`;
 
 // ----------------------------------------------------------------
 // Styles — same design language as Menu2 / Menu3
@@ -80,7 +82,7 @@ const S = {
 // Component
 // ----------------------------------------------------------------
 export default function Menu1() {
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState(INITIAL);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export default function Menu1() {
   };
 
   const handleClear = () => {
-    setInputText("");
+    setInputText(INITIAL);
     setResult(null);
     setError(null);
   };
@@ -145,7 +147,7 @@ export default function Menu1() {
         value={inputText}
         onChange={(e) => { setInputText(e.target.value); setError(null); }}
         placeholder={
-          "＜入力例＞\n技術テーマ／システム名：\n表面処理技術（めっき）\n\n相談したいこと：\nめっき技術について調査／対話したいです。"
+          "＜入力例＞\n技術テーマ／システム名：表面処理技術（めっき技術）\n\nお願い：品質工学の視点でめっき技術について対話したいです。"
         }
         disabled={loading}
         style={{

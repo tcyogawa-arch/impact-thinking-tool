@@ -5,10 +5,13 @@ import { useState } from "react";
 // ----------------------------------------------------------------
 // Sample input
 // ----------------------------------------------------------------
-const SAMPLE = `技術テーマ／システム名：表面処理技術（めっき）
+const INITIAL = `技術テーマ／システム名：〇〇技術
 
-要約／翻訳したいこと：
-論文／文献より，めっき工程の機能について，pダイアグラム要素（機能／システム名，入力信号因子 M，出力特性値 y，制御因子，誤差因子，標示因子，品質特性／不具合モード）を抽出／翻訳したいです。`;
+お願い：品質工学の視点でpダイアグラム要素を抽出したいです。`;
+
+const SAMPLE = `技術テーマ／システム名：表面処理技術（めっき技術）
+
+お願い：品質工学の視点でpダイアグラム要素を抽出したいです。`;
 
 // ----------------------------------------------------------------
 // Prompt generator
@@ -18,8 +21,8 @@ function generatePrompt(text: string): string {
   const themeMatch = text.match(/技術テーマ[／/]?システム名[：:]\s*(.+)/);
   const theme = themeMatch ? themeMatch[1].trim() : "（記載なし）";
 
-  // Extract 要約／翻訳したいこと section
-  const requestMatch = text.match(/要約[／/]翻訳したいこと[：:]\s*([\s\S]*)$/);
+  // Extract 要約／翻訳したいこと or お願い section
+  const requestMatch = text.match(/(?:要約[／/]翻訳したいこと|お願い)[：:]\s*([\s\S]*)$/);
   const requestContent = requestMatch
     ? requestMatch[1].trim()
     : themeMatch
@@ -129,7 +132,7 @@ const S = {
 // Component
 // ----------------------------------------------------------------
 export default function Menu2() {
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState(INITIAL);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [inputError, setInputError] = useState(false);
   const [copyMsg, setCopyMsg] = useState("");
@@ -149,7 +152,7 @@ export default function Menu2() {
   };
 
   const handleClear = () => {
-    setInputText("");
+    setInputText(INITIAL);
     setGeneratedPrompt(null);
     setInputError(false);
   };
@@ -173,7 +176,7 @@ export default function Menu2() {
         value={inputText}
         onChange={(e) => { setInputText(e.target.value); setInputError(false); }}
         placeholder={
-          "技術テーマ／システム名：\n\n要約／翻訳したいこと：\n（例：品質工学の観点でpダイアグラム要素を抽出したい，など）"
+          "＜入力例＞\n技術テーマ／システム名：表面処理技術（めっき技術）\n\nお願い：品質工学の視点でpダイアグラム要素を抽出したいです。"
         }
         style={{
           width: "100%",

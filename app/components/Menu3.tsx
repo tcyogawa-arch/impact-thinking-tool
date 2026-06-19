@@ -5,7 +5,7 @@ import { useState } from "react";
 // ----------------------------------------------------------------
 // Sample text
 // ----------------------------------------------------------------
-const SAMPLE = `a) 機能／システム名称：めっき技術
+const SAMPLE = `a) 機能／システム名：めっき技術
 
 b) 機能の概要／翻訳
 入力：電気量 M（電流×時間）に応じて，出力 y：めっきが析出されるシステム
@@ -268,7 +268,7 @@ function formatDiagramHtml(d: PDiagramData): string {
 
 function formatTextSection(d: PDiagramData): string {
   return [
-    `a) 機能／システム名称：${d.systemName}`,
+    `a) 機能／システム名：${d.systemName}`,
     "",
     "b) 機能の概要／翻訳",
     d.overview,
@@ -439,7 +439,7 @@ export default function Menu3() {
         value={inputText}
         onChange={(e) => setInputText(e.target.value)}
         placeholder={
-          "＜入力例＞\na) 機能／システム名称\n\nb) 機能の概要／翻訳\n\nc) pダイアグラム要素\n　1) 機能／システム名：\n　2）入力信号因子M：\n　3) 出力特性値ｙ：\n　4) 制御因子：\n　5) 誤差因子：\n　6) 標示因子：\n　7) 品質特性／不具合モード：\n\nd) 現場への問いかけ（3～5つ）"
+          "＜入力例＞（メニュー1や2の回答、自分で作成したメモを貼り付けてください）\n\na) 機能／システム名\n\nb) 機能の概要／翻訳\n\nc) pダイアグラム要素\n　1) 機能／システム名：\n　2）入力信号因子M：\n　3) 出力特性値ｙ：\n　4) 制御因子：\n　5) 誤差因子：\n　6) 標示因子：\n　7) 品質特性／不具合モード：\n\nd) 現場への問いかけ"
         }
         style={{
           width: "100%",
@@ -485,7 +485,7 @@ export default function Menu3() {
           </h2>
 
           <div style={{ marginBottom: "12px" }}>
-            <span style={S.label}>a) 機能／システム名称</span>
+            <span style={S.label}>a) 機能／システム名</span>
             <textarea rows={1} value={editData.systemName} onChange={(e) => updateField("systemName", e.target.value)} style={S.fieldTextarea} />
           </div>
 
