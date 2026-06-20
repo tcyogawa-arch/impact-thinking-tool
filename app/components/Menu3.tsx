@@ -42,6 +42,19 @@ interface PDiagramData {
 }
 
 // ----------------------------------------------------------------
+// Remove URLs: strip bare URLs and expand Markdown links to label only
+// ----------------------------------------------------------------
+function removeUrls(text: string): string {
+  // [表示テキスト](URL) → 表示テキスト だけ残す
+  let t = text.replace(/\[([^\]]*)\]\(https?:\/\/[^)]+\)/g, "$1");
+  // URL だけの行 → 行ごと削除
+  t = t.split("\n").filter((line) => !/^\s*https?:\/\/\S+\s*$/.test(line)).join("\n");
+  // 行中に残った裸のURL → 削除
+  t = t.replace(/https?:\/\/\S+/g, "");
+  return t;
+}
+
+// ----------------------------------------------------------------
 // Strip Markdown: remove heading/bold/bullet markers from AI output
 // ----------------------------------------------------------------
 function stripMarkdown(text: string): string {
@@ -104,6 +117,7 @@ function simplifyLatex(text: string): string {
 // ----------------------------------------------------------------
 function normalizeInput(raw: string): string {
   let t = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  t = removeUrls(t);
   t = stripMarkdown(t);
   t = simplifyLatex(t);
   // Insert newline before section headers (a-d) that appear mid-line
@@ -139,7 +153,10 @@ function parseText(text: string): PDiagramData | null {
 
   // a) システム名称
   const aFirstLine = (sections["a"] ?? [])[0] ?? "";
-  const nameFromA = aFirstLine.match(/名称[：:]\s*(.+)/)?.[1]?.trim() ?? "";
+  const nameFromA =
+    aFirstLine.match(/名[^）\n]*[：:]\s*(.+)/)?.[1]?.trim() ||
+    (sections["a"] ?? []).slice(1).map((l) => l.trim()).find((l) => l.length > 0) ||
+    "";
 
   // b) 機能の概要
   const overview = sectionBody("b");
