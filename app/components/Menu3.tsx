@@ -120,6 +120,8 @@ function normalizeInput(raw: string): string {
   t = removeUrls(t);
   t = stripMarkdown(t);
   t = simplifyLatex(t);
+  // Normalize dot-format item numbers "N. " to "N) " so extractItem can match them
+  t = t.replace(/^([ \t]*)([1-7])\.[ \t]+/gm, "$1$2) ");
   // Insert newline before section headers (a-d) that appear mid-line
   t = t.replace(/([^\n])([a-d][)）])/g, "$1\n$2");
   // Insert newline before item numbers (1-7, half or full-width) that appear mid-line
