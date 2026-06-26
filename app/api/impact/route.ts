@@ -90,11 +90,16 @@ export async function POST(request: NextRequest) {
   if (!geminiRes.ok) {
     const status = geminiRes.status;
     const errorBody = await geminiRes.text().catch(() => "(本文取得失敗)");
-    console.error(`[impact] API error: status=${status}, body=${errorBody}`);
+    if (status === 503) {
+      console.error(`[impact] Gemini API 503 overloaded or temporarily unavailable`);
+    } else {
+      console.error(`[impact] API error: status=${status}, body=${errorBody}`);
+    }
     const msg =
       status === 400 ? "リクエストが正しくありません。入力内容を確認してください。" :
       status === 403 ? "APIキーが無効です。.env.local の GEMINI_API_KEY を確認してください。" :
       status === 429 ? "APIの利用上限に達しました。しばらく待ってから再試行してください。" :
+      status === 503 ? "Gemini APIが一時的に混み合っています。少し時間をおいて再度お試しください。手入力でサブテーマを追加することもできます。" :
       "Gemini APIの呼び出しに失敗しました。しばらく待ってから再試行してください。";
     return Response.json({ error: msg }, { status });
   }
