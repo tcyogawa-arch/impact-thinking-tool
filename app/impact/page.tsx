@@ -122,51 +122,91 @@ const SAMPLE_MEMO: Memo = {
 };
 
 // ─── Copy formatters ──────────────────────────────────────────────────
-const TH = 'style="border:1px solid #999;padding:8px;background:#dce8f2;font-weight:bold;"';
-const TD = 'style="border:1px solid #999;padding:8px;vertical-align:top;"';
+const COPY_FF = `'Yu Gothic', '游ゴシック', 'YuGothic', sans-serif`;
 
-function buildThemeMatrixHtml(themes: Theme[]): string {
-  let rows = `<tr><th ${TH}>インパクト＼実施スピード</th><th ${TH}>遅い</th><th ${TH}>中間</th><th ${TH}>早い</th></tr>`;
-  for (const impact of ["high", "mid", "low"] as const) {
+// Shared style snippets for copy HTML (single-quoted font names safe inside double-quoted HTML attrs)
+const C = {
+  table: `border-collapse:collapse;width:100%;table-layout:fixed;font-family:${COPY_FF};font-size:11pt;line-height:1.5;`,
+  th: `border:1px solid #999;padding:8px;background-color:#DDEBF7;font-weight:bold;text-align:center;vertical-align:middle;font-family:${COPY_FF};font-size:11pt;line-height:1.5;`,
+  td: `border:1px solid #999;padding:8px;background-color:#FFFFFF;text-align:left;vertical-align:top;font-family:${COPY_FF};font-size:11pt;line-height:1.5;`,
+  axisCol: `width:48px;`,
+  dataCol: `width:30%;`,
+};
+
+type CopyItem = { placed: boolean; impact: ImpactLevel; speed: SpeedLevel; text: string };
+
+function buildMatrixHtml(items: CopyItem[], title: string): string {
+  // Row 1: title (col 1-2) + "← 実施スピード →" (col 3-5)
+  const row1 =
+    `<tr>` +
+    `<th colspan="2" style="${C.th}">${escHtml(title)}</th>` +
+    `<th colspan="3" style="${C.th}">← 実施スピード →</th>` +
+    `</tr>`;
+
+  // Row 2: empty axis cells + speed labels
+  const row2 =
+    `<tr>` +
+    `<th style="${C.th}${C.axisCol}"></th>` +
+    `<th style="${C.th}${C.axisCol}"></th>` +
+    `<th style="${C.th}${C.dataCol}">遅い</th>` +
+    `<th style="${C.th}${C.dataCol}">中間</th>` +
+    `<th style="${C.th}${C.dataCol}">早い</th>` +
+    `</tr>`;
+
+  // Vertical "↑インパクト↓" text — one character per line
+  const impactVertical = `↑<br>${"インパクト".split("").join("<br>")}<br>↓`;
+
+  // Rows 3-5: impact × speed data cells
+  const dataRows = (["high", "mid", "low"] as const).map((impact, idx) => {
     const cells = (["slow", "mid", "fast"] as const).map((speed) => {
       const cell = MATRIX_CELLS[`${impact}_${speed}`];
-      const its = themes.filter((t) => t.placed && t.impact === impact && t.speed === speed);
+      const its = items.filter((t) => t.placed && t.impact === impact && t.speed === speed);
       const label = escHtml(`${cell.num}：${cell.label}`);
-      const content = its.length === 0 ? label : label + "<br>" + its.map((t) => escHtml(t.text)).join("<br>");
-      return `<td ${TD}>${content}</td>`;
+      const content = its.length === 0
+        ? label
+        : label + "<br>" + its.map((t) => escHtml(t.text)).join("<br>");
+      return `<td style="${C.td}${C.dataCol}">${content}</td>`;
     }).join("");
-    rows += `<tr><th ${TH}>${IMPACT_LABELS[impact]}</th>${cells}</tr>`;
-  }
-  return `<table style="border-collapse:collapse;width:100%;">${rows}</table>`;
+
+    const axisCell = idx === 0
+      ? `<th rowspan="3" style="${C.th}${C.axisCol}">${impactVertical}</th>`
+      : "";
+
+    return `<tr>${axisCell}<th style="${C.th}${C.axisCol}">${IMPACT_LABELS[impact]}</th>${cells}</tr>`;
+  }).join("");
+
+  return `<table style="${C.table}">${row1}${row2}${dataRows}</table>`;
+}
+
+function buildMatrixTsv(items: CopyItem[], title: string): string {
+  const row1 = `${title}\t\t← 実施スピード →`;
+  const row2 = `\t\t遅い\t中間\t早い`;
+  const dataRows = (["high", "mid", "low"] as const).map((impact, idx) => {
+    const axisLabel = idx === 0 ? "↑ インパクト ↓" : "";
+    const cells = (["slow", "mid", "fast"] as const).map((speed) => {
+      const cell = MATRIX_CELLS[`${impact}_${speed}`];
+      const its = items.filter((t) => t.placed && t.impact === impact && t.speed === speed);
+      const label = `${cell.num}：${cell.label}`;
+      return its.length === 0 ? label : label + " / " + its.map((t) => t.text).join(" / ");
+    });
+    return `${axisLabel}\t${IMPACT_LABELS[impact]}\t${cells.join("\t")}`;
+  });
+  return [row1, row2, ...dataRows].join("\n");
+}
+
+function buildThemeMatrixHtml(themes: Theme[]): string {
+  const items: CopyItem[] = themes.map((t) => ({ placed: t.placed, impact: t.impact, speed: t.speed, text: t.text }));
+  return buildMatrixHtml(items, "優先順位マトリクス");
 }
 
 function buildSubthemeMatrixHtml(subthemes: Subtheme[]): string {
-  let rows = `<tr><th ${TH}>インパクト＼実施スピード</th><th ${TH}>遅い</th><th ${TH}>中間</th><th ${TH}>早い</th></tr>`;
-  for (const impact of ["high", "mid", "low"] as const) {
-    const cells = (["slow", "mid", "fast"] as const).map((speed) => {
-      const cell = MATRIX_CELLS[`${impact}_${speed}`];
-      const its = subthemes.filter((s) => s.placed && s.impact === impact && s.speed === speed);
-      const label = escHtml(`${cell.num}：${cell.label}`);
-      const content = its.length === 0 ? label : label + "<br>" + its.map((s) => escHtml(s.title)).join("<br>");
-      return `<td ${TD}>${content}</td>`;
-    }).join("");
-    rows += `<tr><th ${TH}>${IMPACT_LABELS[impact]}</th>${cells}</tr>`;
-  }
-  return `<table style="border-collapse:collapse;width:100%;">${rows}</table>`;
+  const items: CopyItem[] = subthemes.map((s) => ({ placed: s.placed, impact: s.impact, speed: s.speed, text: s.title }));
+  return buildMatrixHtml(items, "解体後マトリクス");
 }
 
 function formatThemeMatrixTsv(themes: Theme[]): string {
-  const headerRow = `インパクト＼実施スピード\t遅い\t中間\t早い`;
-  const dataRows = (["high", "mid", "low"] as const).map((impact) => {
-    const cells = (["slow", "mid", "fast"] as const).map((speed) => {
-      const cell = MATRIX_CELLS[`${impact}_${speed}`];
-      const its = themes.filter((t) => t.placed && t.impact === impact && t.speed === speed);
-      const label = `${cell.num}：${cell.label}`;
-      return its.length === 0 ? label : label + "  " + its.map((t) => t.text).join(" / ");
-    });
-    return `${IMPACT_LABELS[impact]}\t${cells.join("\t")}`;
-  });
-  return [`優先順位マトリクス`, ``, headerRow, ...dataRows].join("\n");
+  const items: CopyItem[] = themes.map((t) => ({ placed: t.placed, impact: t.impact, speed: t.speed, text: t.text }));
+  return buildMatrixTsv(items, "優先順位マトリクス");
 }
 
 function formatThemeList(themes: Theme[]): string {
@@ -182,17 +222,8 @@ function formatThemeList(themes: Theme[]): string {
 }
 
 function formatSubthemeMatrixTsv(subthemes: Subtheme[]): string {
-  const headerRow = `インパクト＼実施スピード\t遅い\t中間\t早い`;
-  const dataRows = (["high", "mid", "low"] as const).map((impact) => {
-    const cells = (["slow", "mid", "fast"] as const).map((speed) => {
-      const cell = MATRIX_CELLS[`${impact}_${speed}`];
-      const its = subthemes.filter((s) => s.placed && s.impact === impact && s.speed === speed);
-      const label = `${cell.num}：${cell.label}`;
-      return its.length === 0 ? label : label + "  " + its.map((s) => s.title).join(" / ");
-    });
-    return `${IMPACT_LABELS[impact]}\t${cells.join("\t")}`;
-  });
-  return [`大きな課題の解体マトリクス`, ``, headerRow, ...dataRows].join("\n");
+  const items: CopyItem[] = subthemes.map((s) => ({ placed: s.placed, impact: s.impact, speed: s.speed, text: s.title }));
+  return buildMatrixTsv(items, "解体後マトリクス");
 }
 
 function formatSubthemeList(subthemes: Subtheme[]): string {
@@ -212,7 +243,7 @@ function formatMemo(memo: Memo): string {
   return [
     "【最初の一手メモ】",
     "",
-    "今回まず取り組むサブテーマ：",
+    "今回取り組むテーマ：",
     memo.subtheme  || "（未入力）",
     "",
     "今日やること：",
@@ -448,6 +479,33 @@ const S = {
     fontSize: "13px",
     fontFamily: "inherit",
   } satisfies React.CSSProperties,
+
+  h2Orange: {
+    fontSize: "1.25rem",
+    fontWeight: "bold",
+    color: "#E36D4A",
+    marginBottom: "1rem",
+    paddingLeft: "12px",
+    borderLeft: "4px solid #E36D4A",
+  } satisfies React.CSSProperties,
+
+  h3OrangeLarge: {
+    fontSize: "1.2rem",
+    fontWeight: "bold",
+    color: "#E36D4A",
+    marginBottom: "12px",
+    paddingLeft: "12px",
+    borderLeft: "4px solid #E36D4A",
+  } satisfies React.CSSProperties,
+
+  h3Orange: {
+    fontSize: "1.05rem",
+    fontWeight: "bold",
+    color: "#E36D4A",
+    marginBottom: "10px",
+    paddingLeft: "12px",
+    borderLeft: "4px solid #E36D4A",
+  } satisfies React.CSSProperties,
 };
 
 // ─── Matrix table component ───────────────────────────────────────────
@@ -670,8 +728,11 @@ export default function ImpactPage() {
   const sendToDecompose = (text: string) => {
     if (!text.trim()) return;
     if (bigIssue.trim() && !window.confirm("大きな課題欄にすでに入力があります。上書きしますか？")) return;
-    setBigIssue(text);
+    setBigIssueCtx("");
+    setSubthemes([]);
+    setMemo({ subtheme: "", today: "", thisWeek: "", nextCheck: "" });
     setApiError(null);
+    setBigIssue(text);
   };
 
   const clearThemeMatrix = () => {
@@ -717,8 +778,12 @@ export default function ImpactPage() {
       } else {
         setSubthemes(
           (data.subthemes ?? []).map(
-            (s: { title: string; reason: string; impact?: string; speed?: string }) =>
-              newSubtheme(s.title, s.reason, mapImpact(s.impact), mapSpeed(s.speed))
+            (s: { title: string; reason: string; impact?: string; speed?: string }) => {
+              const impact = mapImpact(s.impact);
+              const speed = mapSpeed(s.speed);
+              const placed = !!(impact && speed);
+              return { ...newSubtheme(s.title, s.reason, impact, speed), placed };
+            }
           )
         );
       }
@@ -786,7 +851,7 @@ export default function ImpactPage() {
         <div style={S.section}>
 
           {/* 優先順位マトリクス（上部） */}
-          <h3 style={S.h3Large}>優先順位マトリクス</h3>
+          <h3 style={S.h3Large}>優先順位をつける</h3>
           <MatrixTable items={placedThemeItems} />
           <div style={{ display: "flex", gap: "8px", marginTop: "12px", marginBottom: "24px", flexWrap: "wrap", alignItems: "center" }}>
             <button
@@ -807,7 +872,7 @@ export default function ImpactPage() {
           <hr style={{ border: "none", borderTop: "1px solid #dce8f2", marginBottom: "20px" }} />
 
           {/* 候補テーマ入力（マトリクスの下） */}
-          <h2 style={S.h2}>候補テーマ入力</h2>
+          <h2 style={S.h2}>候補テーマを入力しよう！</h2>
           <p style={{ fontSize: "14px", color: "#5a6a7a", marginBottom: "16px", lineHeight: 1.7 }}>
             取り組みたい候補テーマを入力し、インパクトと実施スピードを選択して「表示」でマトリクスに配置してください。
           </p>
@@ -870,10 +935,14 @@ export default function ImpactPage() {
             Section 2: 大きな課題の解体
         ══════════════════════════════════════════════════ */}
         <div style={S.section}>
-          <h2 style={S.h2Large}>大きな課題の解体（塊を砕く）</h2>
-          <p style={{ fontSize: "14px", color: "#5a6a7a", marginBottom: "16px", lineHeight: 1.7 }}>
-            砕いて考えたい大きな課題を入力し、「大きな課題／塊を砕く」でAIがサブテーマの候補を提案します。<br />
-            <strong style={{ color: "#3a6ea5" }}>※ AIの出力は提案です。内容を確認し、現場に合わせて編集してください。</strong>
+          <h2 style={S.h2Orange}>大きな課題の解体（塊を砕く）</h2>
+          <p style={{ fontSize: "14px", color: "#5a6a7a", marginBottom: "16px", lineHeight: 1.85 }}>
+            大きな課題（塊）は、手付かずにせず、ここで砕きましょう！<br />
+            <br />
+            <strong style={{ color: "#E36D4A" }}>AIの力を借りる場合｜</strong><br />
+            課題と補足を入力して、「大きな課題／塊を砕く（Gemini連携）」ボタンを押してください<br />
+            <br />
+            <span style={{ color: "#7a8a9a" }}>※AIの出力はたたき台です。現場での対話に活用し、編集ください。</span>
           </p>
 
           {/* 1. 大きな課題入力 */}
@@ -919,7 +988,7 @@ export default function ImpactPage() {
 
           {/* 4. 大きな課題の解体マトリクス */}
           <div style={{ marginTop: "20px", marginBottom: "8px" }}>
-            <h3 style={S.h3Large}>大きな課題の解体マトリクス</h3>
+            <h3 style={S.h3OrangeLarge}>大きな課題の解体マトリクス</h3>
             <p style={{ fontSize: "14px", color: "#5a6a7a", marginBottom: "12px" }}>
               サブテーマをマトリクスに配置して、「最初の一手」を見つけてください。
             </p>
@@ -946,10 +1015,9 @@ export default function ImpactPage() {
           {/* 5. サブテーマ入力 */}
           {subthemes.length > 0 && (
             <div>
-              <h3 style={S.h3}>サブテーマ（AIの提案 · 編集可能）</h3>
-              <p style={{ fontSize: "13px", color: "#5a6a7a", marginBottom: "12px" }}>
-                内容を確認し、現場に合わせて編集してください。インパクトと実施スピードを選択して「表示」で解体マトリクスに配置します。<br />
-                <strong style={{ color: "#d4783a" }}>入力されたサブテーマ、インパクト・実施スピードはAIの仮置きです。確認・修正してから「表示」してください。</strong>
+              <h3 style={S.h3Orange}>サブテーマに分解しよう！</h3>
+              <p style={{ fontSize: "13px", color: "#7a8a9a", marginBottom: "12px" }}>
+                ※AIの出力はたたき台です。現場での対話に活用し、編集ください。
               </p>
               {subthemes.map((sub, idx) => (
                 <div key={sub.id} style={S.subCard}>
@@ -1022,11 +1090,11 @@ export default function ImpactPage() {
         <div style={S.section}>
           <h2 style={S.h2}>最初の一手メモ</h2>
           <p style={{ fontSize: "14px", color: "#5a6a7a", marginBottom: "16px", lineHeight: 1.7 }}>
-            対話の結果として、まず取り組むことを書き留めてください。
+            最初の一手として取り組むことをメモっておきましょう！
           </p>
 
           <div style={{ marginBottom: "12px" }}>
-            <span style={S.label}>今回まず取り組むサブテーマ</span>
+            <span style={S.label}>今回取り組むテーマ</span>
             <input
               type="text"
               value={memo.subtheme}
